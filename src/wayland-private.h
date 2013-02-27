@@ -130,8 +130,8 @@ int
 wl_closure_lookup_objects(struct wl_closure *closure, struct wl_map *objects);
 
 void
-wl_closure_invoke(struct wl_closure *closure,
-		  struct wl_object *target, void (*func)(void), void *data);
+wl_closure_invoke(struct wl_closure *closure, struct wl_object *target,
+		  uint32_t opcode, void *data);
 int
 wl_closure_send(struct wl_closure *closure, struct wl_connection *connection);
 int

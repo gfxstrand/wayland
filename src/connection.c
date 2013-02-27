@@ -856,12 +856,13 @@ convert_arguments_to_ffi(const char *signature, union wl_argument *args,
 
 void
 wl_closure_invoke(struct wl_closure *closure,
-		  struct wl_object *target, void (*func)(void), void *data)
+		  struct wl_object *target, uint32_t opcode, void *data)
 {
 	int count;
 	ffi_cif cif;
 	ffi_type *ffi_types[WL_CLOSURE_MAX_ARGS + 2];
 	void * ffi_args[WL_CLOSURE_MAX_ARGS + 2];
+	void (* const *implementation)(void);
 
 	count = arg_count_for_signature(closure->message->signature);
 
@@ -876,7 +877,8 @@ wl_closure_invoke(struct wl_closure *closure,
 	ffi_prep_cif(&cif, FFI_DEFAULT_ABI,
 		     count + 2, &ffi_type_void, ffi_types);
 
-	ffi_call(&cif, func, NULL, ffi_args);
+	implementation = target->implementation;
+	ffi_call(&cif, implementation[opcode], NULL, ffi_args);
 }
 
 static int

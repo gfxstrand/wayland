@@ -277,8 +277,7 @@ wl_client_connection_data(int fd, uint32_t mask, void *data)
 		if (wl_debug)
 			wl_closure_print(closure, object, false);
 
-		wl_closure_invoke(closure, object,
-				  object->implementation[opcode], client);
+		wl_closure_invoke(closure, object, opcode, client);
 
 		wl_closure_destroy(closure);
 
