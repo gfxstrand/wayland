@@ -230,10 +230,10 @@ marshal_demarshal(struct marshal_data *data,
 {
 	struct wl_closure *closure;
 	static const int opcode = 4444;
-	static struct wl_object sender = { NULL, NULL, 1234 };
+	static struct wl_object sender = { NULL, NULL, 1234, NULL };
 	struct wl_message message = { "test", format, NULL };
 	struct wl_map objects;
-	struct wl_object object = { NULL, &func, 1234 };
+	struct wl_object object = { NULL, &func, 1234, NULL };
 	va_list ap;
 	uint32_t msg[1] = { 1234 };
 

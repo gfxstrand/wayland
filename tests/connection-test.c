@@ -156,7 +156,7 @@ marshal(struct marshal_data *data, const char *format, int size, ...)
 {
 	struct wl_closure *closure;
 	static const uint32_t opcode = 4444;
-	static struct wl_object sender = { NULL, NULL, 1234 };
+	static struct wl_object sender = { NULL, NULL, 1234, NULL };
 	struct wl_message message = { "test", format, NULL };
 	va_list ap;
 
@@ -327,7 +327,7 @@ demarshal(struct marshal_data *data, const char *format,
 	struct wl_message message = { "test", format, NULL };
 	struct wl_closure *closure;
 	struct wl_map objects;
-	struct wl_object object = { NULL, &func, 0 };
+	struct wl_object object = { NULL, &func, 0, NULL };
 	int size = msg[1];
 
 	assert(write(data->s[1], msg, size) == size);
@@ -396,10 +396,10 @@ marshal_demarshal(struct marshal_data *data,
 {
 	struct wl_closure *closure;
 	static const int opcode = 4444;
-	static struct wl_object sender = { NULL, NULL, 1234 };
+	static struct wl_object sender = { NULL, NULL, 1234, NULL };
 	struct wl_message message = { "test", format, NULL };
 	struct wl_map objects;
-	struct wl_object object = { NULL, &func, 0 };
+	struct wl_object object = { NULL, &func, 0, NULL };
 	va_list ap;
 	uint32_t msg[1] = { 1234 };
 
@@ -493,8 +493,8 @@ static void
 marshal_helper(const char *format, void *handler, ...)
 {
 	struct wl_closure *closure;
-	static struct wl_object sender = { NULL, NULL, 1234 };
-	struct wl_object object = { NULL, &handler, 0 };
+	static struct wl_object sender = { NULL, NULL, 1234, NULL };
+	struct wl_object object = { NULL, &handler, 0, NULL };
 	static const int opcode = 4444;
 	struct wl_message message = { "test", format, NULL };
 	va_list ap;
