@@ -74,17 +74,6 @@ int wl_connection_write(struct wl_connection *connection, const void *data, size
 int wl_connection_queue(struct wl_connection *connection,
 			const void *data, size_t count);
 
-union wl_argument {
-	int32_t i;
-	uint32_t u;
-	wl_fixed_t f;
-	const char *s;
-	struct wl_object *o;
-	uint32_t n;
-	struct wl_array *a;
-	int32_t h;
-};
-
 struct wl_closure {
 	int count;
 	const struct wl_message *message;

@@ -853,10 +853,10 @@ convert_arguments_to_ffi(const char *signature, union wl_argument *args,
 	}
 }
 
-
 void
-wl_closure_invoke(struct wl_closure *closure,
-		  struct wl_object *target, uint32_t opcode, void *data)
+wl_object_default_dispatcher(struct wl_object * target, uint32_t opcode,
+			     const struct wl_message *message, void *data,
+			     union wl_argument *args)
 {
 	int count;
 	ffi_cif cif;
@@ -864,21 +864,34 @@ wl_closure_invoke(struct wl_closure *closure,
 	void * ffi_args[WL_CLOSURE_MAX_ARGS + 2];
 	void (* const *implementation)(void);
 
-	count = arg_count_for_signature(closure->message->signature);
+	count = arg_count_for_signature(message->signature);
 
 	ffi_types[0] = &ffi_type_pointer;
 	ffi_args[0] = &data;
 	ffi_types[1] = &ffi_type_pointer;
 	ffi_args[1] = &target;
 
-	convert_arguments_to_ffi(closure->message->signature, closure->args,
-				 count, ffi_types + 2, ffi_args + 2);
+	convert_arguments_to_ffi(message->signature, args, count,
+				 ffi_types + 2, ffi_args + 2);
 
 	ffi_prep_cif(&cif, FFI_DEFAULT_ABI,
 		     count + 2, &ffi_type_void, ffi_types);
 
 	implementation = target->implementation;
 	ffi_call(&cif, implementation[opcode], NULL, ffi_args);
+}
+
+void
+wl_closure_invoke(struct wl_closure *closure, struct wl_object *target,
+		  uint32_t opcode, void *data)
+{
+	if (target->dispatcher) {
+		(*target->dispatcher)(target, opcode, closure->message,
+				      data, closure->args);
+	} else {
+		wl_object_default_dispatcher(target, opcode, closure->message,
+					     data, closure->args);
+	}
 }
 
 static int

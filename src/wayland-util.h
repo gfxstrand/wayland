@@ -1,5 +1,6 @@
 /*
  * Copyright © 2008 Kristian Høgsberg
+ * Copyright © 2013 Jason Ekstrand
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -54,11 +55,26 @@ struct wl_interface {
 	const struct wl_message *events;
 };
 
+struct wl_object;
+union wl_argument;
+
+typedef void (*wl_object_dispatcher_func_t)(struct wl_object *, uint32_t,
+					    const struct wl_message *,
+					    void *, union wl_argument *);
+
 struct wl_object {
 	const struct wl_interface *interface;
-	void (* const * implementation)(void);
+	const void *implementation;
 	uint32_t id;
+
+	/* Added since Wayland version 1.0 */
+	wl_object_dispatcher_func_t dispatcher;
 };
+
+void
+wl_object_default_dispatcher(struct wl_object * target, uint32_t opcode,
+			     const struct wl_message *message, void *data,
+			     union wl_argument *args);
 
 /**
  * wl_list - linked list
@@ -197,6 +213,17 @@ static inline wl_fixed_t wl_fixed_from_int(int i)
 {
 	return i * 256;
 }
+
+union wl_argument {
+	int32_t i;
+	uint32_t u;
+	wl_fixed_t f;
+	const char *s;
+	struct wl_object *o;
+	uint32_t n;
+	struct wl_array *a;
+	int32_t h;
+};
 
 typedef void (*wl_log_func_t)(const char *, va_list);
 

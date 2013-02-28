@@ -198,6 +198,7 @@ wl_resource_init(struct wl_resource *resource,
 	resource->object.id = id;
 	resource->object.interface = interface;
 	resource->object.implementation = implementation;
+	resource->object.dispatcher = NULL;
 
 	wl_signal_init(&resource->destroy_signal);
 

@@ -220,6 +220,7 @@ wl_proxy_create(struct wl_proxy *factory, const struct wl_interface *interface)
 
 	proxy->object.interface = interface;
 	proxy->object.implementation = NULL;
+	proxy->object.dispatcher = NULL;
 	proxy->display = display;
 	proxy->queue = factory->queue;
 	proxy->flags = 0;
@@ -247,6 +248,7 @@ wl_proxy_create_for_id(struct wl_proxy *factory,
 
 	proxy->object.interface = interface;
 	proxy->object.implementation = NULL;
+	proxy->object.dispatcher = NULL;
 	proxy->object.id = id;
 	proxy->display = display;
 	proxy->queue = factory->queue;
@@ -311,12 +313,13 @@ WL_EXPORT int
 wl_proxy_add_listener(struct wl_proxy *proxy,
 		      void (**implementation)(void), void *data)
 {
-	if (proxy->object.implementation) {
+	if (proxy->object.implementation || proxy->object.dispatcher) {
 		fprintf(stderr, "proxy already has listener\n");
 		return -1;
 	}
 
 	proxy->object.implementation = implementation;
+	proxy->object.dispatcher = NULL;
 	proxy->user_data = data;
 
 	return 0;
@@ -527,6 +530,7 @@ wl_display_connect_to_fd(int fd)
 				  WL_MAP_CLIENT_SIDE, display);
 	display->proxy.display = display;
 	display->proxy.object.implementation = (void(**)(void)) &display_listener;
+	display->proxy.object.dispatcher = NULL;
 	display->proxy.user_data = display;
 	display->proxy.queue = &display->queue;
 	display->proxy.flags = 0;
@@ -832,7 +836,7 @@ dispatch_event(struct wl_display *display, struct wl_event_queue *queue)
 
 	pthread_mutex_unlock(&display->mutex);
 
-	if (proxy->object.implementation) {
+	if (proxy->object.implementation || proxy->object.dispatcher) {
 		if (wl_debug)
 			wl_closure_print(closure, &proxy->object, false);
 
