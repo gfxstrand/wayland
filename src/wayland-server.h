@@ -215,7 +215,7 @@ wl_resource_init(struct wl_resource *resource,
 }
 
 struct wl_buffer {
-	struct wl_resource resource;
+	struct wl_resource *resource;
 	int32_t width, height;
 	uint32_t busy_count;
 };
