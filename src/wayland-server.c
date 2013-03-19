@@ -440,6 +440,46 @@ wl_resource_destroy(struct wl_resource *resource)
 	}
 }
 
+WL_EXPORT struct wl_client *
+wl_resource_get_client(struct wl_resource *resource)
+{
+	return resource->client;
+}
+
+WL_EXPORT void *
+wl_resource_get_data(struct wl_resource *resource)
+{
+	return resource->data;
+}
+
+WL_EXPORT void
+wl_resource_set_destructor(struct wl_resource *resource,
+			   wl_resource_destroy_func_t destroy)
+{
+	resource->destroy = destroy;
+}
+
+WL_EXPORT int
+wl_resource_instance_of(struct wl_resource *resource,
+			const void *implementation)
+{
+	return resource && resource->object.implementation == implementation;
+}
+
+WL_EXPORT void
+wl_resource_add_destroy_listener(struct wl_resource *resource,
+				 struct wl_listener * listener)
+{
+	wl_signal_add(&resource->destroy_signal, listener);
+}
+
+WL_EXPORT struct wl_listener *
+wl_resource_get_destroy_listener(struct wl_resource *resource,
+				 wl_notify_func_t notify)
+{
+	return wl_signal_get(&resource->destroy_signal, notify);
+}
+
 WL_EXPORT void
 wl_client_add_destroy_listener(struct wl_client *client,
 			       struct wl_listener *listener)
