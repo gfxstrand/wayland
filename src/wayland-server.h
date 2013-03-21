@@ -284,14 +284,20 @@ struct wl_touch_grab {
 	struct wl_surface *focus;
 };
 
+struct wl_data_device {
+	struct wl_resource *resource;
+	struct wl_list link;
+	struct wl_seat *seat;
+};
+
 struct wl_data_offer {
-	struct wl_resource resource;
+	struct wl_resource *resource;
 	struct wl_data_source *source;
 	struct wl_listener source_destroy_listener;
 };
 
 struct wl_data_source {
-	struct wl_resource resource;
+	struct wl_resource *resource;
 	struct wl_array mime_types;
 
 	void (*accept)(struct wl_data_source *source,
@@ -381,12 +387,12 @@ struct wl_seat {
 	struct wl_listener selection_data_source_listener;
 	struct wl_signal selection_signal;
 
-	struct wl_list drag_resource_list;
+	struct wl_list drag_data_device_list;
 	struct wl_client *drag_client;
 	struct wl_data_source *drag_data_source;
 	struct wl_listener drag_data_source_listener;
 	struct wl_surface *drag_focus;
-	struct wl_resource *drag_focus_resource;
+	struct wl_data_device *drag_focus_device;
 	struct wl_listener drag_focus_listener;
 	struct wl_pointer_grab drag_grab;
 	struct wl_surface *drag_surface;

@@ -782,7 +782,7 @@ wl_seat_init(struct wl_seat *seat)
 	seat->selection_data_source = NULL;
 	wl_list_init(&seat->base_resource_list);
 	wl_signal_init(&seat->selection_signal);
-	wl_list_init(&seat->drag_resource_list);
+	wl_list_init(&seat->drag_data_device_list);
 	wl_signal_init(&seat->drag_icon_signal);
 }
 
