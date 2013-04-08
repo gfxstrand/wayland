@@ -887,6 +887,14 @@ wl_closure_invoke(struct wl_closure *closure, uint32_t flags,
 	ffi_call(&cif, implementation[opcode], NULL, ffi_args);
 }
 
+void
+wl_closure_dispatch(struct wl_closure *closure, struct wl_dispatcher *dispatch,
+		    struct wl_object *target, uint32_t opcode)
+{
+	dispatch->dispatcher(dispatch->data, target, opcode,
+			     closure->message, closure->args);
+}
+
 static int
 copy_fds_to_connection(struct wl_closure *closure,
 		       struct wl_connection *connection)

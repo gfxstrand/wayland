@@ -102,6 +102,11 @@ struct wl_global {
 	struct wl_list link;
 };
 
+struct wl_dispatched_resource {
+	struct wl_resource resource;
+	struct wl_dispatcher dispatcher;
+};
+
 static int wl_debug = 0;
 
 static void
@@ -113,16 +118,14 @@ destroy_client(void *data)
 }
 
 WL_EXPORT void
-wl_resource_post_event(struct wl_resource *resource, uint32_t opcode, ...)
+wl_resource_post_event_a(struct wl_resource *resource, uint32_t opcode,
+			 union wl_argument *args)
 {
 	struct wl_closure *closure;
 	struct wl_object *object = &resource->object;
-	va_list ap;
 
-	va_start(ap, opcode);
-	closure = wl_closure_vmarshal(object, opcode, ap,
-				      &object->interface->events[opcode]);
-	va_end(ap);
+	closure = wl_closure_marshal(object, opcode, args,
+				     &object->interface->events[opcode]);
 
 	if (closure == NULL)
 		return;
@@ -137,18 +140,30 @@ wl_resource_post_event(struct wl_resource *resource, uint32_t opcode, ...)
 	wl_closure_destroy(closure);
 }
 
-
 WL_EXPORT void
-wl_resource_queue_event(struct wl_resource *resource, uint32_t opcode, ...)
+wl_resource_post_event(struct wl_resource *resource, uint32_t opcode, ...)
 {
-	struct wl_closure *closure;
+	union wl_argument args[WL_CLOSURE_MAX_ARGS];
 	struct wl_object *object = &resource->object;
 	va_list ap;
 
 	va_start(ap, opcode);
-	closure = wl_closure_vmarshal(object, opcode, ap,
-				      &object->interface->events[opcode]);
+	wl_argument_from_va_list(object->interface->events[opcode].signature,
+				 args, WL_CLOSURE_MAX_ARGS, ap);
 	va_end(ap);
+
+	wl_resource_post_event_a(resource, opcode, args);
+}
+
+WL_EXPORT void
+wl_resource_queue_event_a(struct wl_resource *resource, uint32_t opcode,
+			  union wl_argument *args)
+{
+	struct wl_closure *closure;
+	struct wl_object *object = &resource->object;
+
+	closure = wl_closure_marshal(object, opcode, args,
+				     &object->interface->events[opcode]);
 
 	if (closure == NULL)
 		return;
@@ -161,6 +176,21 @@ wl_resource_queue_event(struct wl_resource *resource, uint32_t opcode, ...)
 		wl_closure_print(closure, object, true);
 
 	wl_closure_destroy(closure);
+}
+
+WL_EXPORT void
+wl_resource_queue_event(struct wl_resource *resource, uint32_t opcode, ...)
+{
+	union wl_argument args[WL_CLOSURE_MAX_ARGS];
+	struct wl_object *object = &resource->object;
+	va_list ap;
+
+	va_start(ap, opcode);
+	wl_argument_from_va_list(object->interface->events[opcode].signature,
+				 args, WL_CLOSURE_MAX_ARGS, ap);
+	va_end(ap);
+
+	wl_resource_queue_event_a(resource, opcode, args);
 }
 
 WL_EXPORT void
@@ -197,6 +227,7 @@ wl_client_connection_data(int fd, uint32_t mask, void *data)
 	struct wl_client *client = data;
 	struct wl_connection *connection = client->connection;
 	struct wl_resource *resource;
+	struct wl_dispatched_resource *dispatched_resource;
 	struct wl_object *object;
 	struct wl_closure *closure;
 	const struct wl_message *message;
@@ -277,8 +308,16 @@ wl_client_connection_data(int fd, uint32_t mask, void *data)
 		if (wl_debug)
 			wl_closure_print(closure, object, false);
 
-		wl_closure_invoke(closure, WL_CLOSURE_INVOKE_SERVER, object,
-				  opcode, client);
+		if (object->implementation == (void *)resource) {
+			dispatched_resource =
+				(struct wl_dispatched_resource *)resource;
+			wl_closure_dispatch(closure,
+					    &dispatched_resource->dispatcher,
+					    object, opcode);
+		} else {
+			wl_closure_invoke(closure, WL_CLOSURE_INVOKE_SERVER,
+					  object, opcode, client);
+		}
 
 		wl_closure_destroy(closure);
 
@@ -1435,6 +1474,55 @@ wl_client_add_object(struct wl_client *client,
 	}
 
 	return resource;
+}
+
+WL_EXPORT struct wl_resource *
+wl_client_add_dispatched_object(struct wl_client *client,
+				const struct wl_interface *interface,
+				wl_dispatcher_func_t dispatcher_func,
+				const void *dispatch_data,
+				uint32_t id, void *data)
+{
+	struct wl_dispatched_resource *dispatched_resource;
+	struct wl_resource *resource;
+
+	dispatched_resource = malloc(sizeof *dispatched_resource);
+	if (dispatched_resource == NULL) {
+		wl_resource_post_no_memory(client->display_resource);
+		return NULL;
+	}
+	resource = &dispatched_resource->resource;
+
+	wl_resource_init(resource, interface, resource, id, data);
+	resource->client = client;
+	resource->destroy = (void *) free;
+
+	dispatched_resource->dispatcher.dispatcher = dispatcher_func;
+	dispatched_resource->dispatcher.data = dispatch_data;
+
+	if (wl_map_insert_at(&client->objects, resource->object.id, resource) < 0) {
+		wl_resource_post_error(client->display_resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "invalid new id %d",
+				       resource->object.id);
+		free(resource);
+		return NULL;
+	}
+
+	return resource;
+}
+
+WL_EXPORT struct wl_resource *
+wl_client_new_dispatched_object(struct wl_client *client,
+				const struct wl_interface *interface,
+				wl_dispatcher_func_t dispatcher,
+				const void *dispatch_data, void *data)
+{
+	uint32_t id;
+
+	id = wl_map_insert_new(&client->objects, WL_MAP_SERVER_SIDE, NULL);
+	return wl_client_add_dispatched_object(client, interface, dispatcher,
+					       dispatch_data, id, data);
 }
 
 WL_EXPORT struct wl_resource *

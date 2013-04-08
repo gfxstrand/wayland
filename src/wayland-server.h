@@ -137,6 +137,17 @@ wl_client_new_object(struct wl_client *client,
 		     const struct wl_interface *interface,
 		     const void *implementation, void *data);
 struct wl_resource *
+wl_client_add_dispatched_object(struct wl_client *client,
+				const struct wl_interface *interface,
+				wl_dispatcher_func_t dispatcher,
+				const void *dispatch_data,
+				uint32_t id, void *data);
+struct wl_resource *
+wl_client_new_dispatched_object(struct wl_client *client,
+				const struct wl_interface *interface,
+				wl_dispatcher_func_t dispatcher,
+				const void *dispatch_data, void *data);
+struct wl_resource *
 wl_client_get_object(struct wl_client *client, uint32_t id);
 
 struct wl_listener {
@@ -403,8 +414,12 @@ struct wl_seat {
  * - type=new_id:	(struct wl_object *) or (struct wl_resource *)
  * - type=object:	(struct wl_object *) or (struct wl_resource *)
  */
+void wl_resource_post_event_a(struct wl_resource *resource,
+			      uint32_t opcode, union wl_argument *args);
 void wl_resource_post_event(struct wl_resource *resource,
 			    uint32_t opcode, ...);
+void wl_resource_queue_event_a(struct wl_resource *resource,
+			       uint32_t opcode, union wl_argument *args);
 void wl_resource_queue_event(struct wl_resource *resource,
 			     uint32_t opcode, ...);
 
