@@ -47,11 +47,12 @@
 
 enum wl_proxy_flag {
 	WL_PROXY_FLAG_ID_DELETED = (1 << 0),
-	WL_PROXY_FLAG_DESTROYED = (1 << 1)
+	WL_PROXY_FLAG_DESTROYED = (1 << 1),
 };
 
 struct wl_proxy {
 	struct wl_object object;
+	struct wl_dispatcher dispatcher;
 	struct wl_display *display;
 	struct wl_event_queue *queue;
 	uint32_t flags;
@@ -220,6 +221,8 @@ wl_proxy_create(struct wl_proxy *factory, const struct wl_interface *interface)
 
 	proxy->object.interface = interface;
 	proxy->object.implementation = NULL;
+	proxy->dispatcher.dispatcher = NULL;
+	proxy->dispatcher.data = NULL;
 	proxy->display = display;
 	proxy->queue = factory->queue;
 	proxy->flags = 0;
@@ -248,6 +251,8 @@ wl_proxy_create_for_id(struct wl_proxy *factory,
 	proxy->object.interface = interface;
 	proxy->object.implementation = NULL;
 	proxy->object.id = id;
+	proxy->dispatcher.dispatcher = NULL;
+	proxy->dispatcher.data = NULL;
 	proxy->display = display;
 	proxy->queue = factory->queue;
 	proxy->flags = 0;
@@ -311,12 +316,47 @@ WL_EXPORT int
 wl_proxy_add_listener(struct wl_proxy *proxy,
 		      void (**implementation)(void), void *data)
 {
-	if (proxy->object.implementation) {
+	if (proxy->object.implementation || proxy->dispatcher.dispatcher) {
 		fprintf(stderr, "proxy already has listener\n");
 		return -1;
 	}
 
 	proxy->object.implementation = implementation;
+	proxy->user_data = data;
+
+	return 0;
+}
+
+/** Set a proxy's listener (with dispatcher)
+ *
+ * \param proxy The proxy object
+ * \param dispatcher_func The dispatcher to be used for this listener
+ * \param dispatcher_data The dispatcher-specific listener data be added to proxy
+ * \param data User data to be associated with the proxy
+ * \return 0 on success or -1 on failure
+ *
+ * Set proxy's listener to use \c dispatcher_func as its dispatcher and \c
+ * dispatcher_data as its dispatcher-specific implementation and its user data
+ * to \c data. If a listener has already been set, this function
+ * fails and nothing is changed.
+ *
+ * The exact details of dispatcher_data depend on the dispatcher used.  This
+ * function is intended to be used by language bindings, not user code.
+ *
+ * \memberof wl_proxy
+ */
+WL_EXPORT int
+wl_proxy_add_dispatched_listener(struct wl_proxy *proxy,
+				 wl_dispatcher_func_t dispatcher_func,
+				 const void * dispatcher_data, void *data)
+{
+	if (proxy->object.implementation || proxy->dispatcher.dispatcher) {
+		fprintf(stderr, "proxy already has listener\n");
+		return -1;
+	}
+
+	proxy->dispatcher.dispatcher = dispatcher_func;
+	proxy->dispatcher.data = dispatcher_data;
 	proxy->user_data = data;
 
 	return 0;
@@ -353,15 +393,44 @@ wl_proxy_add_listener(struct wl_proxy *proxy,
 WL_EXPORT void
 wl_proxy_marshal(struct wl_proxy *proxy, uint32_t opcode, ...)
 {
-	struct wl_closure *closure;
+	union wl_argument args[WL_CLOSURE_MAX_ARGS];
 	va_list ap;
+
+	va_start(ap, opcode);
+	wl_argument_from_va_list(proxy->object.interface->methods[opcode].signature,
+				 args, WL_CLOSURE_MAX_ARGS, ap);
+	va_end(ap);
+
+	wl_proxy_marshal_a(proxy, opcode, args);
+}
+
+/** Prepare a request to be sent to the compositor
+ *
+ * \param proxy The proxy object
+ * \param opcode Opcode of the request to be sent
+ * \param args Extra arguments for the given request
+ *
+ * Translates the request given by opcode and the extra arguments into the
+ * wire format and write it to the connection buffer.  This version takes an
+ * array of the union type wl_argument.
+ *
+ * \note This is intended to be used by language bindings and not in
+ * non-generated code.
+ *
+ * \sa wl_proxy_marshal()
+ *
+ * \memberof wl_proxy
+ */
+WL_EXPORT void
+wl_proxy_marshal_a(struct wl_proxy *proxy, uint32_t opcode,
+		   union wl_argument *args)
+{
+	struct wl_closure *closure;
 
 	pthread_mutex_lock(&proxy->display->mutex);
 
-	va_start(ap, opcode);
-	closure = wl_closure_vmarshal(&proxy->object, opcode, ap,
-				      &proxy->object.interface->methods[opcode]);
-	va_end(ap);
+	closure = wl_closure_marshal(&proxy->object, opcode, args,
+				     &proxy->object.interface->methods[opcode]);
 
 	if (closure == NULL) {
 		fprintf(stderr, "Error marshalling request\n");
@@ -841,8 +910,13 @@ dispatch_event(struct wl_display *display, struct wl_event_queue *queue)
 			wl_closure_print(closure, &proxy->object, false);
 
 		wl_closure_invoke(closure, WL_CLOSURE_INVOKE_CLIENT,
-				  &proxy->object, opcode,
-				  proxy->user_data);
+				  &proxy->object, opcode, proxy->user_data);
+	} else if (proxy->dispatcher.dispatcher) {
+		if (wl_debug)
+			wl_closure_print(closure, &proxy->object, false);
+
+		wl_closure_dispatch(closure, &proxy->dispatcher,
+				    &proxy->object, opcode);
 	}
 
 	wl_closure_destroy(closure);
