@@ -111,6 +111,7 @@ struct wl_global *wl_global_create(struct wl_display *display,
 				   const struct wl_interface *interface,
 				   int version,
 				   void *data, wl_global_bind_func_t bind);
+void *wl_global_get_user_data(struct wl_global *global);
 void wl_global_destroy(struct wl_global *global);
 
 struct wl_client *wl_client_create(struct wl_display *display, int fd);

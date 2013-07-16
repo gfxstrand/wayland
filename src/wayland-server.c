@@ -820,6 +820,12 @@ wl_global_create(struct wl_display *display,
 	return global;
 }
 
+WL_EXPORT void *
+wl_global_get_user_data(struct wl_global *global)
+{
+	return global->data;
+}
+
 WL_EXPORT void
 wl_global_destroy(struct wl_global *global)
 {
